@@ -1,0 +1,53 @@
+[project]
+name = "dub"
+version = "2.0.0"
+description = "Local English -> German video dubbing with cloned voices on AMD GPUs (ROCm)"
+license = "MIT"
+requires-python = "==3.12.*"
+dependencies = [
+    # torchaudio's last release is 2.11, so torch stays on 2.11 to match it
+    "torch==2.11.0",
+    "torchaudio==2.11.0",
+    # torch's triton; listed here only so its [tool.uv.sources] entry applies
+    "triton-rocm",
+    "torchcodec>=0.11",
+    "coqui-tts>=0.27.4",
+    "demucs>=4.1",
+    "openai-whisper",
+    "librosa",
+    "numpy",
+    "soundfile",
+    # Qwen3-TTS; pins transformers==4.57.3, which coqui-tts accepts too
+    "qwen-tts>=0.1.1",
+]
+
+[project.optional-dependencies]
+# dub_v2.py: who speaks when (uv sync --extra speakers)
+speakers = ["pyannote-audio>=4.0.7"]
+
+[tool.uv]
+# The ROCm wheels only exist for Linux x86_64, so don't resolve for anything else
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+# openai-whisper depends on the CUDA "triton" package, which clashes with
+# triton-rocm (both provide the "triton" module). Drop it.
+override-dependencies = ["triton; sys_platform == 'never'"]
+# coqui-tts 0.27.5 imports transformers.pytorch_utils.isin_mps_friendly, removed in 5.1
+constraint-dependencies = ["transformers<5"]
+
+# torch and its triton always come from the ROCm index, never from PyPI (CUDA builds)
+[tool.uv.sources]
+torch = { index = "pytorch-rocm" }
+torchaudio = { index = "pytorch-rocm" }
+triton-rocm = { index = "pytorch-rocm" }
+# torchcodec on PyPI is a CUDA build (links libcudart/libtorch_cuda); the CPU build works with ROCm torch
+torchcodec = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-rocm"
+url = "https://download.pytorch.org/whl/rocm7.2"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
